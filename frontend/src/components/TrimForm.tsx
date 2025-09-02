@@ -13,6 +13,12 @@ export default function TrimForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [error, setError] = useState("");
+  const [timeError, setTimeError] = useState("");
+
+  const isValidTimestamp = (time: string): boolean => {
+    const timeRegex = /^(\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})$/;
+    return timeRegex.test(time);
+  };
 
   const getYoutubeVideoId = (url: string): string | null => {
     const regExp =
@@ -32,9 +38,21 @@ export default function TrimForm() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    setIsLoading(true);
+    // 1. Limpa todos os estados de resultado/erro da tentativa anterior
     setError("");
+    setTimeError("");
     setDownloadUrl("");
+
+    // 2. Valida os dados PRIMEIRO
+    if (!isValidTimestamp(startTime) || !isValidTimestamp(endTime)) {
+      setTimeError(
+        "Formato de tempo inválido. Por favor, use mm:ss ou hh:mm:ss."
+      );
+      return; // Se inválido, mostra o erro e para. Não entra em modo "loading".
+    }
+
+    // 3. APENAS se a validação passar, inicia o estado de carregamento
+    setIsLoading(true);
 
     try {
       const response = await fetch("http://localhost:3001/api/trim", {
@@ -53,16 +71,13 @@ export default function TrimForm() {
 
       setDownloadUrl(data.downloadUrl);
     } catch (err) {
-      // O 'err' agora é do tipo 'unknown' por padrão
       let errorMessage = "Ocorreu um erro inesperado.";
-
-      // 2. Verifica se o erro é um objeto do tipo Error
       if (err instanceof Error) {
         errorMessage = err.message;
       }
-      // 3. Define a mensagem de erro de forma segura
       setError(errorMessage);
     } finally {
+      // 4. Garante que o carregamento termina, não importa se deu sucesso ou erro na API
       setIsLoading(false);
     }
   };
@@ -145,6 +160,10 @@ export default function TrimForm() {
           />
         </div>
       </div>
+
+      {timeError && (
+        <p className="text-center text-red-400 -mt-2 mb-4">{timeError}</p>
+      )}
 
       {/* Botão de Envio */}
       <button

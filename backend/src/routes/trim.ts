@@ -15,12 +15,9 @@ router.post("/", async (req, res) => {
 
   // 1. Validação básica da entrada
   if (!url || !startTime || !endTime) {
-    return res
-      .status(400)
-      .send({
-        error:
-          "Parâmetros ausentes: url, startTime e endTime são obrigatórios.",
-      });
+    return res.status(400).send({
+      error: "Parâmetros ausentes: url, startTime e endTime são obrigatórios.",
+    });
   }
 
   try {
@@ -42,7 +39,7 @@ router.post("/", async (req, res) => {
 
     // 3. Comando para cortar o vídeo com ffmpeg
     // -c copy faz o corte sem re-encodar o vídeo, o que é MUITO mais rápido.
-    const trimCommand = `ffmpeg -i "${originalVideoPath}" -ss ${startTime} -to ${endTime} -c copy "${outputVideoPath}"`;
+    const trimCommand = `ffmpeg -i "${originalVideoPath}" -ss ${startTime} -to ${endTime} "${outputVideoPath}"`;
     await execPromise(trimCommand);
 
     console.log(`[CONCLUÍDO] Vídeo cortado em: ${outputVideoPath}`);
@@ -56,12 +53,10 @@ router.post("/", async (req, res) => {
     res.status(200).send({ downloadUrl });
   } catch (error) {
     console.error("Ocorreu um erro no processamento do vídeo:", error);
-    res
-      .status(500)
-      .send({
-        error:
-          "Falha ao processar o vídeo. Verifique a URL e os tempos fornecidos.",
-      });
+    res.status(500).send({
+      error:
+        "Falha ao processar o vídeo. Verifique a URL e os tempos fornecidos.",
+    });
   }
 });
 
