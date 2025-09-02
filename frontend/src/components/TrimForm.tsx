@@ -1,14 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import YouTube from "react-youtube";
 
 export default function TrimForm() {
   const [url, setUrl] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+
+  const [videoId, setVideoId] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [error, setError] = useState("");
+
+  const getYoutubeVideoId = (url: string): string | null => {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl); // Atualiza o estado da URL
+    const id = getYoutubeVideoId(newUrl); // Tenta extrair o ID
+    setVideoId(id); // Atualiza o estado do videoId (pode ser o ID ou null)
+  };
 
   // Função que será chamada ao enviar o formulário
   const handleSubmit = async (event: React.FormEvent) => {
@@ -66,12 +84,29 @@ export default function TrimForm() {
           type="url"
           id="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={handleUrlChange}
           placeholder="https://www.youtube.com/watch?v=..."
           required
           className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
+
+      {videoId && (
+        <div className="my-4">
+          <YouTube
+            videoId={videoId}
+            opts={{
+              height: "360",
+              width: "100%",
+              playerVars: {
+                // https://developers.google.com/youtube/player_parameters
+                autoplay: 0,
+              },
+            }}
+            className="w-full aspect-video rounded-lg overflow-hidden"
+          />
+        </div>
+      )}
 
       {/* Inputs de Tempo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
