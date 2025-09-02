@@ -1,23 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import YouTube from "react-youtube";
+import { useState, useRef } from "react";
+import YouTube, { YouTubeEvent } from "react-youtube";
 
 export default function TrimForm() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerRef = useRef<any>(null);
   const [url, setUrl] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-
   const [videoId, setVideoId] = useState<string | null>(null);
-
   const [isLoading, setIsLoading] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState("");
   const [error, setError] = useState("");
   const [timeError, setTimeError] = useState("");
+  const [videoDuration, setVideoDuration] = useState<number>(0);
+
+  // --- FUNÇÕES AUXILIARES (LUGAR CORRETO) ---
 
   const isValidTimestamp = (time: string): boolean => {
-    const timeRegex = /^(\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})$/;
+    const timeRegex = /^((\d{1,2}:)?\d{1,2}:)?\d{1,2}(\.\d{1,3})?$/;
     return timeRegex.test(time);
+  };
+
+  const timeToSeconds = (time: string): number => {
+    const [main, milliseconds = "0"] = time.split(".");
+    const parts = main.split(":").map(Number);
+    let seconds = 0;
+    if (parts.length === 3) {
+      seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      seconds = parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      seconds = parts[0];
+    }
+    return seconds + parseFloat(`0.${milliseconds}`);
+  };
+
+  const secondsToTime = (totalSeconds: number): string => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    const milliseconds = Math.round(
+      (totalSeconds - Math.floor(totalSeconds)) * 10
+    );
+    let timeString = `${String(minutes).padStart(2, "0")}:${String(
+      seconds
+    ).padStart(2, "0")}`;
+    if (hours > 0) {
+      timeString = `${String(hours).padStart(2, "0")}:${timeString}`;
+    }
+    if (milliseconds > 0) {
+      return `${timeString}.${milliseconds}`;
+    }
+    return timeString;
   };
 
   const getYoutubeVideoId = (url: string): string | null => {
@@ -27,48 +63,69 @@ export default function TrimForm() {
     return match && match[2].length === 11 ? match[2] : null;
   };
 
+  // --- FUNÇÕES DE EVENTO (HANDLERS) ---
+
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newUrl = e.target.value;
-    setUrl(newUrl); // Atualiza o estado da URL
-    const id = getYoutubeVideoId(newUrl); // Tenta extrair o ID
-    setVideoId(id); // Atualiza o estado do videoId (pode ser o ID ou null)
+    setUrl(newUrl);
+    const id = getYoutubeVideoId(newUrl);
+    setVideoId(id);
   };
 
-  // Função que será chamada ao enviar o formulário
+  const handlePlayerReady = (event: YouTubeEvent) => {
+    playerRef.current = event.target;
+    const duration = event.target.getDuration();
+    setVideoDuration(duration);
+  };
+
+  const handleSetTime = (
+    timeSetter: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    if (playerRef.current) {
+      const currentTime = playerRef.current.getCurrentTime();
+      timeSetter(secondsToTime(currentTime));
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // 1. Limpa todos os estados de resultado/erro da tentativa anterior
     setError("");
     setTimeError("");
     setDownloadUrl("");
 
-    // 2. Valida os dados PRIMEIRO
     if (!isValidTimestamp(startTime) || !isValidTimestamp(endTime)) {
-      setTimeError(
-        "Formato de tempo inválido. Por favor, use mm:ss ou hh:mm:ss."
-      );
-      return; // Se inválido, mostra o erro e para. Não entra em modo "loading".
+      setTimeError("Formato de tempo inválido. Por favor, use mm:ss.s.");
+      return;
     }
 
-    // 3. APENAS se a validação passar, inicia o estado de carregamento
+    // A VALIDAÇÃO QUE ESTAVA FALTANDO
+    if (timeToSeconds(startTime) >= timeToSeconds(endTime)) {
+      setTimeError("O tempo de início deve ser menor que o tempo de fim.");
+      return;
+    }
+
+    if (videoDuration > 0 && timeToSeconds(endTime) > videoDuration) {
+      setTimeError(
+        `O tempo de fim não pode ser maior que a duração do vídeo (${secondsToTime(
+          videoDuration
+        )}).`
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const response = await fetch("http://localhost:3001/api/trim", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, startTime, endTime }),
       });
-
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.error || "Algo deu errado.");
       }
-
       setDownloadUrl(data.downloadUrl);
     } catch (err) {
       let errorMessage = "Ocorreu um erro inesperado.";
@@ -77,11 +134,11 @@ export default function TrimForm() {
       }
       setError(errorMessage);
     } finally {
-      // 4. Garante que o carregamento termina, não importa se deu sucesso ou erro na API
       setIsLoading(false);
     }
   };
 
+  // --- JSX ---
   return (
     <form
       onSubmit={handleSubmit}
@@ -110,6 +167,7 @@ export default function TrimForm() {
         <div className="my-4">
           <YouTube
             videoId={videoId}
+            onReady={handlePlayerReady}
             opts={{
               height: "360",
               width: "100%",
@@ -132,15 +190,25 @@ export default function TrimForm() {
           >
             Tempo de Início
           </label>
-          <input
-            type="text"
-            id="startTime"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            placeholder="00:00"
-            required
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              id="startTime"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              placeholder="mm:ss.s"
+              required
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => handleSetTime(setStartTime)}
+              className="px-3 bg-gray-600 hover:bg-gray-500 rounded-md"
+              title="Usar tempo atual do vídeo"
+            >
+              🎯
+            </button>
+          </div>
         </div>
         <div>
           <label
@@ -149,15 +217,25 @@ export default function TrimForm() {
           >
             Tempo de Fim
           </label>
-          <input
-            type="text"
-            id="endTime"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            placeholder="00:00"
-            required
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              id="endTime"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              placeholder="mm:ss.s"
+              required
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => handleSetTime(setEndTime)}
+              className="px-3 bg-gray-600 hover:bg-gray-500 rounded-md"
+              title="Usar tempo atual do vídeo"
+            >
+              🎯
+            </button>
+          </div>
         </div>
       </div>
 
@@ -194,6 +272,7 @@ export default function TrimForm() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
+            Processando...
           </>
         ) : (
           "Cortar Vídeo"
