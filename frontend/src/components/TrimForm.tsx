@@ -89,7 +89,7 @@ export default function TrimForm() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
+    // ... (todas as suas validações de tempo continuam aqui, exatamente como antes)
     setError("");
     setTimeError("");
     setDownloadUrl("");
@@ -98,13 +98,10 @@ export default function TrimForm() {
       setTimeError("Formato de tempo inválido. Por favor, use mm:ss.s.");
       return;
     }
-
-    // A VALIDAÇÃO QUE ESTAVA FALTANDO
     if (timeToSeconds(startTime) >= timeToSeconds(endTime)) {
       setTimeError("O tempo de início deve ser menor que o tempo de fim.");
       return;
     }
-
     if (videoDuration > 0 && timeToSeconds(endTime) > videoDuration) {
       setTimeError(
         `O tempo de fim não pode ser maior que a duração do vídeo (${secondsToTime(
@@ -122,18 +119,51 @@ export default function TrimForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, startTime, endTime }),
       });
-      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(data.error || "Algo deu errado.");
+        const data = await response.json();
+        throw new Error(data.error || "Falha ao iniciar o processo.");
       }
-      setDownloadUrl(data.downloadUrl);
+
+      const { jobId } = await response.json();
+
+      const intervalId = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(
+            `http://localhost:3001/api/trim/status/${jobId}`
+          );
+          if (!statusResponse.ok) {
+            clearInterval(intervalId);
+            setError("Erro ao verificar o status do processo.");
+            setIsLoading(false);
+            return;
+          }
+
+          const data = await statusResponse.json();
+
+          if (data.status === "completed") {
+            clearInterval(intervalId);
+            setDownloadUrl(data.result.downloadUrl);
+            setIsLoading(false);
+          } else if (data.status === "failed") {
+            clearInterval(intervalId);
+            setError(
+              data.reason || "Ocorreu um erro durante o processamento do vídeo."
+            );
+            setIsLoading(false);
+          }
+        } catch {
+          clearInterval(intervalId);
+          setError("Erro de rede ao verificar o status.");
+          setIsLoading(false);
+        }
+      }, 3000);
     } catch (err) {
-      let errorMessage = "Ocorreu um erro inesperado.";
       if (err instanceof Error) {
-        errorMessage = err.message;
+        setError(err.message);
+      } else {
+        setError("Ocorreu um erro inesperado ao submeter o pedido.");
       }
-      setError(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   };
