@@ -15,6 +15,7 @@ export default function TrimForm() {
   const [error, setError] = useState("");
   const [timeError, setTimeError] = useState("");
   const [videoDuration, setVideoDuration] = useState<number>(0);
+  const [progress, setProgress] = useState<number>(0);
 
   // --- FUNÇÕES AUXILIARES (LUGAR CORRETO) ---
 
@@ -143,6 +144,7 @@ export default function TrimForm() {
 
           if (data.status === "completed") {
             clearInterval(intervalId);
+            setProgress(100); // Garante que a barra chegue a 100%
             setDownloadUrl(data.result.downloadUrl);
             setIsLoading(false);
           } else if (data.status === "failed") {
@@ -151,6 +153,8 @@ export default function TrimForm() {
               data.reason || "Ocorreu um erro durante o processamento do vídeo."
             );
             setIsLoading(false);
+          } else if (data.status === "active") {
+            setProgress(data.progress || 0);
           }
         } catch {
           clearInterval(intervalId);
@@ -166,6 +170,17 @@ export default function TrimForm() {
       }
       setIsLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setUrl("");
+    setStartTime("");
+    setEndTime("");
+    setVideoId(null);
+    setDownloadUrl("");
+    setError("");
+    setTimeError("");
+    setProgress(0);
   };
 
   // --- JSX ---
@@ -310,19 +325,42 @@ export default function TrimForm() {
       </button>
 
       <div className="mt-6 text-center">
+        {isLoading && (
+          <div className="w-full max-w-sm mx-auto">
+            {/* Barra de Fundo */}
+            <div className="w-full bg-gray-600 rounded-full h-2.5">
+              {/* Barra de Progresso */}
+              <div
+                className="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-blue-300 mt-2">Progresso: {progress}%</p>
+          </div>
+        )}
         {error && (
           <p className="text-red-500 bg-red-900/20 p-3 rounded-md">{error}</p>
         )}
         {downloadUrl && (
           <div className="bg-green-900/30 p-4 rounded-lg">
             <p className="text-green-400 mb-4">Seu clipe está pronto!</p>
-            <a
-              href={`http://localhost:3001${downloadUrl}`}
-              download
-              className="inline-block py-3 px-6 bg-green-600 hover:bg-green-700 rounded-md text-white font-semibold transition-colors"
-            >
-              Baixar Clipe
-            </a>
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+              <a
+                href={`http://localhost:3001${downloadUrl}`}
+                download
+                className="inline-block py-3 px-6 bg-green-600 hover:bg-green-700 rounded-md text-white font-semibold transition-colors"
+              >
+                Baixar Clipe
+              </a>
+              {/* BOTÃO DE RESET */}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="py-3 px-6 bg-gray-600 hover:bg-gray-500 rounded-md text-white font-semibold transition-colors"
+              >
+                Cortar Outro Vídeo
+              </button>
+            </div>
           </div>
         )}
       </div>

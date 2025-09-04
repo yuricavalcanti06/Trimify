@@ -28,7 +28,10 @@ const worker = new Worker(
     try {
       await job.updateProgress(10);
       console.log(`[WORKER Job ${job.id}] Baixando vídeo...`);
-      const downloadCommand = `yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "${originalVideoPath}" "${url}"`;
+
+      const cookiesPath = path.join(__dirname, "../youtube.com_cookies.txt");
+      const downloadCommand = `yt-dlp --cookies "${cookiesPath}" -f "best[ext=mp4][height<=1080]" -o "${originalVideoPath}" "${url}"`;
+
       await execPromise(downloadCommand);
 
       await job.updateProgress(50);

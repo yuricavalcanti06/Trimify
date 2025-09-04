@@ -10,3 +10,5 @@ dist/
 
 # Env files
 .env
+cookies.txt
+youtube.com_cookies.txt
