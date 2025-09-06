@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import YouTube, { YouTubeEvent } from "react-youtube";
 
 export default function TrimForm() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const playerRef = useRef<any>(null);
   const [url, setUrl] = useState("");
@@ -115,7 +116,7 @@ export default function TrimForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:3001/api/trim", {
+      const response = await fetch("${apiUrl}/api/trim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, startTime, endTime }),
@@ -131,7 +132,7 @@ export default function TrimForm() {
       const intervalId = setInterval(async () => {
         try {
           const statusResponse = await fetch(
-            `http://localhost:3001/api/trim/status/${jobId}`
+            `${apiUrl}/api/trim/status/${jobId}`
           );
           if (!statusResponse.ok) {
             clearInterval(intervalId);
@@ -346,7 +347,7 @@ export default function TrimForm() {
             <p className="text-green-400 mb-4">Seu clipe está pronto!</p>
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
               <a
-                href={`http://localhost:3001${downloadUrl}`}
+                href={`${apiUrl}${downloadUrl}`}
                 download
                 className="inline-block py-3 px-6 bg-green-600 hover:bg-green-700 rounded-md text-white font-semibold transition-colors"
               >

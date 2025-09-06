@@ -1,15 +1,15 @@
-import { Worker } from "bullmq";
+import { Worker, ConnectionOptions } from "bullmq";
 import { exec } from "child_process";
 import util from "util";
 import path from "path";
 import fs from "fs";
+import IORedis from "ioredis";
 
 const execPromise = util.promisify(exec);
 
-const redisConnection = {
-  host: "localhost",
-  port: 6379,
-};
+const connection = new IORedis(
+  process.env.REDIS_URL || "redis://localhost:6379"
+);
 
 const worker = new Worker(
   "video-trimming",
@@ -56,7 +56,7 @@ const worker = new Worker(
       throw error;
     }
   },
-  { connection: redisConnection }
+  { connection }
 );
 
 console.log("🚀 Worker iniciado e ouvindo a fila 'video-trimming'...");
