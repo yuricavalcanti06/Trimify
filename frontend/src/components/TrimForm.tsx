@@ -116,7 +116,7 @@ export default function TrimForm() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("${apiUrl}/api/trim", {
+      const response = await fetch(`${apiUrl}/api/trim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, startTime, endTime }),
